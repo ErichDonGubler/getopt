@@ -28,9 +28,8 @@
 
 #include <tuple> // Tuple return for C++-style convenience interface
 
-namespace getopt
+namespace GetOpt
 {
-
 	class GetOptException : public std::runtime_error
 	{
 	public:
@@ -65,31 +64,31 @@ namespace getopt
 		{
 			switch(configOption)
 			{
-				case getopt::config::caseInsensitive:
+				case config::caseInsensitive:
 					this->caseSensitive = true;
 					break;
-				case getopt::config::caseSensitive:
+				case config::caseSensitive:
 					this->caseSensitive = true;
 					break;
-				case getopt::config::passThrough:
+				case config::passThrough:
 					this->passThrough = true;
 					break;
-				case getopt::config::noPassThrough:
+				case config::noPassThrough:
 					this->passThrough = false;
 					break;
-				case getopt::config::bundling:
+				case config::bundling:
 					this->bundling = true;
 					break;
-				case getopt::config::noBundling:
+				case config::noBundling:
 					this->bundling = false;
 					break;
-				case getopt::config::required:
+				case config::required:
 					this->required = true;
 					break;
-				case getopt::config::keepEndOfOptions:
+				case config::keepEndOfOptions:
 					this->keepEndOfOptions = true;
 					break;
-				case getopt::config::stopOnFirstNonOption:
+				case config::stopOnFirstNonOption:
 					this->stopOnFirstNonOption = true;
 					break;
 			}
@@ -102,6 +101,8 @@ namespace getopt
 		Option(auto&& sos, auto&& los) : shortOpts(sos), longOpts(los){}
 	public:
 		bool isIncremental = false;
+		std::string longOptForHelp;
+		std::string shortOptForHelp;
 		std::unordered_set<char> shortOpts;
 		std::unordered_set<std::string> longOpts;
 
@@ -130,9 +131,13 @@ namespace getopt
 					case 0:
 						break;
 					case 1:
+						if(shortOpts.size() == 0)
+							shortOptForHelp = optMatch[0];
 						shortOpts.insert(optMatch[0]);
 						break;
 					default:
+						if(longOpts.size() == 0)
+							longOptForHelp = optMatch;
 						longOpts.insert(optMatch);
 						break;
 				}
@@ -145,6 +150,8 @@ namespace getopt
 					break;
 			}
 			while(true);
+			if(!shortOpts.size() && !longOpts.size())
+				throw std::logic_error("Cannot define blank option");
 			this->shortOpts = std::move(shortOpts);
 			this->longOpts = std::move(longOpts);
 		}
@@ -154,7 +161,7 @@ namespace getopt
 	{
 	public:
 		std::vector<Option> options;
-		bool helpWanted;
+		bool helpWanted = false;
 
 		// Nonstandard
 		bool parsing = true;
@@ -173,6 +180,23 @@ namespace getopt
 		// 	this->helpWanted = r.helpWanted;
 		// 	this->parsing = r.parsing;
 		// }
+
+		bool definedOption(const std::string& s)
+		{
+			if(s.size() == 1)
+				return definedOption(s[0]);
+			for(auto& o : options)
+				if(o.longOpts.count(s))
+					return true;
+			return false;
+		}
+		bool definedOption(const char c)
+		{
+			for(auto& o : options)
+				if(o.shortOpts.count(c))
+					return true;
+			return false;
+		}
 	};
 
 	// Assignments from captured flags
@@ -295,28 +319,12 @@ namespace getopt
 		}
 	};
 
-	// Exit case
-	void getopthelper(std::vector<std::string>& args, decltype(args.size())& argsLimit, GetOptConfiguration& config, GetOptResult& result)
-	{
-		if(!config.passThrough)
-		{
-			for(auto i = 0; i < argsLimit; ++i)
-			{
-				std::string arg = args[i], content;
-				switch(flagType(arg, content, config))
-				{
-					case FlagType::NONE:
-						break;
-					default:
-						throw GetOptException("Unrecognized option " + args[i]);
-				}
-			}
-		}
-	}
+	using ArgVector = std::vector<std::string>;
+
 
 	// config value
 	template<typename...Ts>
-	void getopthelper(std::vector<std::string>& args, decltype(args.size())& argsLimit, GetOptConfiguration& configuration, GetOptResult& result, config configOption, Ts&&...ts)
+	void getopthelper(ArgVector& args, decltype(args.size())& argsLimit, GetOptConfiguration& configuration, GetOptResult& result, config configOption, Ts&&...ts)
 	{
 		configuration.set(configOption);
 		getopthelper(args, argsLimit, configuration, result, ts...);
@@ -324,7 +332,7 @@ namespace getopt
 
 	// Optspec/variable pair
 	template<typename T, typename...Ts>
-	void getopthelper(std::vector<std::string>& args, decltype(args.size())& argsLimit, GetOptConfiguration& config, GetOptResult& result, const std::string& optSpec, T& t, Ts&&...ts)
+	void getopthelper(ArgVector& args, decltype(args.size())& argsLimit, GetOptConfiguration& config, GetOptResult& result, const std::string& optSpec, T& t, Ts&&...ts)
 	{
 		// Construct the opt
 		Option option(optSpec);
@@ -409,12 +417,35 @@ namespace getopt
 
 
 	template<typename T, typename...Ts>
-	void getopthelper(std::vector<std::string>& args, decltype(args.size())& argsLimit, GetOptConfiguration& config, GetOptResult& result, const char* opt, T& t, Ts&&...ts)
+	void getopthelper(ArgVector& args, decltype(args.size())& argsLimit, GetOptConfiguration& config, GetOptResult& result, const char* opt, T& t, Ts&&...ts)
 	{
 		getopthelper(args, argsLimit, config, result, std::string(opt), t, ts...);
 	}
 
-	bool findTerminatorIndex(std::vector<std::string>& args, decltype(args.size())& argsLimit)//XXX: Inline?
+	// Exit case
+	void getopthelper(ArgVector& args, decltype(args.size())& argsLimit, GetOptConfiguration& config, GetOptResult& result)
+	{
+		// Baked-in help check
+		if(!result.definedOption("help") && !result.definedOption('h'))
+			getopthelper(args, argsLimit, config, result, "help|h", result.helpWanted);
+
+		if(!config.passThrough) // Check for args we didn't get
+		{
+			for(auto i = 0; i < argsLimit; ++i)
+			{
+				std::string arg = args[i], content;
+				switch(flagType(arg, content, config))
+				{
+					case FlagType::NONE:
+						break;
+					default:
+						throw GetOptException("Unrecognized option " + args[i]);
+				}
+			}
+		}
+	}
+
+	bool findTerminatorIndex(ArgVector& args, decltype(args.size())& argsLimit)//XXX: Inline?
 	{
 		for(auto i = 0; i < args.size(); ++i)
 			if(args[i] == "--")
@@ -444,7 +475,7 @@ namespace getopt
 	}
 
 	template<typename...Args, bool = false>
-	GetOptResult getopt(std::vector<std::string>& args, Args&&...getoptargs)
+	GetOptResult getopt(ArgVector& args, Args&&...getoptargs)
 	{
 		GetOptResult result;
 		GetOptConfiguration config;
@@ -456,14 +487,25 @@ namespace getopt
 		return result;
 	}
 
-	using GetOptResultTuple = std::tuple<GetOptResult, std::vector<std::string>>;
-	template<typename...Args, bool = false>
-	GetOptResultTuple getopt(int argc, char** argv, Args&&...getoptargs)
+	// C++-friendly interface
+
+	struct GetOptResultAndArgs
 	{
-		std::vector<std::string> args(argc);
+		GetOptResult result;
+		ArgVector args;
+
+		GetOptResultAndArgs() = default;
+		GetOptResultAndArgs(GetOptResult r, ArgVector as) : result(r), args(as) {}
+	};
+
+	template<typename...Args, bool = false>
+	GetOptResultAndArgs getopt(int argc, char** argv, Args&&...getoptargs)
+	{
+		ArgVector args(argc);
 		for(auto i = 0; i < argc; ++i)
 			args[i] = argv[i];
-		return make_tuple(getopt(args, getoptargs...), std::move(args));
+		auto result = getopt(args, getoptargs...);
+		return GetOptResultAndArgs(result, std::move(args));
 	}
 };
 
