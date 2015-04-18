@@ -26,8 +26,6 @@
 #include <cctype> // tolower
 #include <algorithm> // transform
 
-#include <tuple> // Tuple return for C++-style convenience interface
-
 namespace GetOpt
 {
 	class GetOptException : public std::runtime_error
