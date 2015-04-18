@@ -1,6 +1,6 @@
 /**
  * example.cpp
- * Shows simple example usage of getopt::getopt.
+ * Shows simple example usage of GetOpt::getopt.
  * Authors: Erich Gubler, erichdongubler@gmail.com
  * Date: 4/17/2015
  */
@@ -29,12 +29,12 @@ int main(int argc, char** argv)
 	
 	// C++-friend version of interface returns a tuple with the result and a vector of remaining args
 	// The tuple type is aliased to "GetOptResultTuple"
-	getopt::GetOptResultTuple results;
+	GetOpt::GetOptResultAndArgs results;
 	try
 	{
-		results = getopt::getopt(argc, argv
+		results = GetOpt::getopt(argc, argv
 
-		// Define short opt "l" and long opt "length" for int length
+		// Define short opt "l" and long opt "length" for int length. Note the following:
 			// * accepts args of the forms:
 			//   * ["-l24"]
 			//   * ["-l", "24"]
@@ -50,9 +50,12 @@ int main(int argc, char** argv)
 
 		// Uncomment this config value to allow unrecognized opts on the command line starting from this point.
 		// config::passThrough is useful for creating modular getopt calls.
-		//, getopt::config::passThrough
-		// Notice: if I pass config::passThrough in here, unrecognized args found while searching
-		//   for previous args will still cause getopt to throw an exception.
+
+		/*, GetOpt::config::passThrough*/
+
+		// Notice: if I pass config::passThrough in here, unrecognized args found previous to it will still
+		//     cause getopt to throw an exception. If I passed in passThrough here, it would still expect
+		//     length and file to come before any unrecognized args.
 
 		// Define incremental opt for verbosity; long is "verbose", short is "v"
 		// Integral types can be used as incremental opts, which count the number of occurences of the flag a la bool.
@@ -76,7 +79,7 @@ int main(int argc, char** argv)
 		// * ["-p", "true"]
 		, "pretty|p", usePrettyOutput);
 	}
-	catch(getopt::GetOptException e)
+	catch(GetOpt::GetOptException e)
 	{
 		cerr << e.what() << endl;
 		return 1;
@@ -90,11 +93,10 @@ int main(int argc, char** argv)
 	cout << "usePrettyOutput: " << (usePrettyOutput ? "true" : "false") << endl;
 
 	// Check to see if the user wanted help; if so, print out automagic help
-	auto& result = get<0>(results);
-	if(result.helpWanted)
-		defaultGetoptPrinter("Here's valid args for this program:", result.options);
+	if(results.result.helpWanted)
+		defaultGetoptPrinter("Here's valid args for this program:", results.result.options);
 
 	// Print remaining args (which were removed during args parsing for convenience)
-	cout << "Args remaining: " << print_range<vector<string>>(get<1>(results)) << endl;
+	cout << "Args remaining: " << print_range<vector<string>>(results.args) << endl;
 	return 0;
 }
