@@ -2,7 +2,6 @@
  * getopt.h
  * Provides GNU-compliant getopt interface
  * Authors: Erich Gubler, erichdongubler@gmail.com
- * Date: 4/17/2015
  */
 #ifndef GETOPT_H
 #define GETOPT_H

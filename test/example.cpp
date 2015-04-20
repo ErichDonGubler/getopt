@@ -2,7 +2,6 @@
  * example.cpp
  * Shows simple example usage of GetOpt::getopt.
  * Authors: Erich Gubler, erichdongubler@gmail.com
- * Date: 4/17/2015
  */
 #include "../include/getopt.h"
 #include "cpputils/printalgorithms.h"

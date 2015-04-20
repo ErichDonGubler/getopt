@@ -3,7 +3,6 @@
  * A fairly comprehensive test of the getopt options and parameter types.
  * TODO: not comprehensive yet!
  * Authors: Erich Gubler, erichdongubler@gmail.com
- * Date: 4/17/2015
  */
 #include "../include/getopt.h"
 #include "../include/getoptdebug.h"
