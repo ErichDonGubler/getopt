@@ -1,3 +1,0 @@
-[submodule "test/cpputils"]
-	path = test/cpputils
-	url = git@github.com:ErichDonGubler/cpputils.git
