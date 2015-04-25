@@ -1,7 +1,13 @@
 /**
  * getopt.h
- * Provides GNU-compliant getopt interface
+ * Provides GNU-compliant getopt interface with template magic for a nice interface
+ * Based on D's [std.getopt](https://github.com/D-Programming-Language/phobos/blob/master/std/getopt.d)
  * Authors: Erich Gubler, erichdongubler@gmail.com
+ * 
+ * Copyright (c) 2015 by Erich Gubler
+ * Distributed under the Boost Software License, Version 1.0.
+ *    (See accompanying file LICENSE_1_0.txt or copy at
+ *          http://www.boost.org/LICENSE_1_0.txt)
  */
 #ifndef GETOPT_H
 #define GETOPT_H
@@ -13,7 +19,7 @@
 #include <unordered_set> // opts matching
 #include <sstream> // conversions between most types
 #include <stdexcept> // runtime_error
-#include <type_traits> // is_integral
+#include <type_traits> // is_integral, // remove_const
 #include <typeinfo> // use typeid(...) for error message for conversions
 #include <utility> // move
 
@@ -24,6 +30,9 @@
 // String case conversions
 #include <cctype> // tolower
 #include <algorithm> // transform
+
+// Help printing
+#include <iomanip>
 
 namespace GetOpt
 {
@@ -95,20 +104,25 @@ namespace GetOpt
 	class Option
 	{
 	private:
-		Option(auto&& sos, auto&& los) : shortOpts(sos), longOpts(los){}
+		Option(std::unordered_set<char>&& sos, std::unordered_set<std::string>&& los)
+			: shortOpts(sos), longOpts(los){}
 	public:
 		bool isIncremental = false;
+		std::string spec;
+		std::string help;
 		std::string longOptForHelp;
 		std::string shortOptForHelp;
 		std::unordered_set<char> shortOpts;
 		std::unordered_set<std::string> longOpts;
 
-		Option(std::string optSpec)
+		Option(std::string optSpec, const std::string& h = "")
+			: spec(optSpec), help(h)
 		{
 			// std::cout << "optSpec: " << optSpec << std::endl;
 			auto specSize = optSpec.size();
 			if(specSize == 0)
-				throw std::logic_error("Spec size must be greater than 0");// Currently, D's getopt crashes on this case
+				// Currently, D's getopt crashes on this case
+				throw std::logic_error("Spec size must be greater than 0");
 			// Check if incremental opt
 			if(optSpec[specSize - 1] == '+')
 			{
@@ -201,34 +215,36 @@ namespace GetOpt
 	template<typename T>
 	void throwConversionException(const std::string& s)
 	{
-		throw GetOptException("\"" + s + "\" is not convertible to type " + typeid(T).name());//TODO: Way to get user-friendly type name? typeid(...)?
+		//TODO: Way to get user-friendly type name? typeid(...)?
+		throw GetOptException("\"" + s + "\" is not convertible to type "
+									+ typeid(T).name());
 	}
 
-	// getoptassign is used to handle conversions from the string form to the desired type
+	// getoptassign is used to handle conversions from string
 
 	template<typename T>
-	void getoptassign(T& t, const std::string& s)
+	void getoptassign(T t, const std::string& s)
 	{
 		std::stringstream ss(s);
-		ss >> t;
+		ss >> *t;
 		if(!ss || ss.peek() != EOF)
 			throwConversionException<T>(s);
 	}
 
 	template<>
-	void getoptassign<std::string>(std::string& t, const std::string& s)
+	void getoptassign<std::string*>(std::string* t, const std::string& s)
 	{
-		t = s;
+		*t = s;
 	}
 
 	template<>
-	void getoptassign<bool>(bool& t, const std::string& s)
+	void getoptassign<bool*>(bool* t, const std::string& s)
 	{
 		auto scopy = s;
 		transform(scopy.begin(), scopy.end(), scopy.begin(), ::tolower);
 		if(scopy != "true" && scopy != "false")
 			throwConversionException<bool>(scopy);
-		t = (scopy == "true");
+		*t = (scopy == "true");
 	}
 
 	enum class FlagType
@@ -253,7 +269,9 @@ namespace GetOpt
 			{
 				auto equalsPos = arg.find('=');
 				auto foundEquals = (equalsPos != std::string::npos);
-				auto opt = arg.substr(2, (foundEquals ? equalsPos - 2 : std::string::npos));
+				auto opt = arg.substr(2, (foundEquals
+											? equalsPos - 2
+											: std::string::npos));
 				if(equalsPos != std::string::npos)
 				{
 					type = FlagType::LONG;
@@ -287,7 +305,7 @@ namespace GetOpt
 	class SolitaryOptHandle
 	{
 	public:
-		static bool handle(T& t, bool isIncremental)
+		static bool handle(T t, bool isIncremental)
 		{
 			return isIncremental;// This is behavior from D's getopt -- '+' at the end of non-integral types seems undefined and "handles" the opt
 		}
@@ -297,42 +315,84 @@ namespace GetOpt
 	class SolitaryOptHandle<T, typename std::enable_if<std::is_integral<T>::value >::type>
 	{
 	public:
-		static bool handle(T& t, bool isIncremental)
+		static bool handle(T t, bool isIncremental)
 		{
 			if(isIncremental)
-				++t;
+				++*t;
 			return isIncremental;
 		}
 	};
 
 	template<>
-	class SolitaryOptHandle<bool, typename std::enable_if<true>::type>
+	class SolitaryOptHandle<bool*, typename std::enable_if<true>::type>
 	{
 	public:
-		static bool handle(bool& t, bool isIncremental)
+		static bool handle(bool* t, bool isIncremental)
 		{
-			t = true;
+			*t = true;
 			return true;
 		}
 	};
 
 	using ArgVector = std::vector<std::string>;
 
+	// TODO: Move semantics for option?
+	// TODO: Could we include these all under the same struct template?
 
-	// config value
-	template<typename...Ts>
-	void getopthelper(ArgVector& args, decltype(args.size())& argsLimit, GetOptConfiguration& configuration, GetOptResult& result, config configOption, Ts&&...ts)
+	template<typename T, typename...Ts>
+	void getopthelper(ArgVector& args, decltype(args.size())& argsLimit
+						, GetOptConfiguration& config, GetOptResult& result
+						, const std::string& optSpec, T t, Ts&&...ts)
 	{
-		configuration.set(configOption);
-		getopthelper(args, argsLimit, configuration, result, ts...);
+		getopthelper(args, argsLimit, config, result, Option(optSpec), t, ts...);
 	}
 
-	// Optspec/variable pair
 	template<typename T, typename...Ts>
-	void getopthelper(ArgVector& args, decltype(args.size())& argsLimit, GetOptConfiguration& config, GetOptResult& result, const std::string& optSpec, T& t, Ts&&...ts)
+	void getopthelper(ArgVector& args, decltype(args.size())& argsLimit
+						, GetOptConfiguration& config, GetOptResult& result
+						, const char* optSpec, T t, Ts&&...ts)
+	{
+		getopthelper(args, argsLimit, config, result, std::string(optSpec), t, ts...);
+	}
+
+	template<typename T, typename...Ts>
+	void getopthelper(ArgVector& args, decltype(args.size())& argsLimit
+						, GetOptConfiguration& config, GetOptResult& result
+						, const std::string& optSpec, const std::string& help, T t, Ts&&...ts)
+	{
+		getopthelper(args, argsLimit, config, result, Option(optSpec, help), t, ts...);
+	}
+
+	template<typename T, typename...Ts>
+	void getopthelper(ArgVector& args, decltype(args.size())& argsLimit
+						, GetOptConfiguration& config, GetOptResult& result
+						, const char* optSpec, const std::string& help, T t, Ts&&...ts)
+	{
+		getopthelper(args, argsLimit, config, result, std::string(optSpec), help, t, ts...);
+	}
+
+	template<typename T, typename...Ts>
+	void getopthelper(ArgVector& args, decltype(args.size())& argsLimit
+						, GetOptConfiguration& config, GetOptResult& result
+						, const std::string& optSpec, const char* help, T t, Ts&&...ts)
+	{
+		getopthelper(args, argsLimit, config, result, optSpec, std::string(help), t, ts...);
+	}
+
+	template<typename T, typename...Ts>
+	void getopthelper(ArgVector& args, decltype(args.size())& argsLimit
+						, GetOptConfiguration& config, GetOptResult& result
+						, const char* optSpec, const char* help, T t, Ts&&...ts)
+	{
+		getopthelper(args, argsLimit, config, result, std::string(optSpec), std::string(help), t, ts...);
+	}
+
+	template<typename T, typename...Ts>
+	void getopthelper(ArgVector& args, decltype(args.size())& argsLimit
+						, GetOptConfiguration& config, GetOptResult& result
+						, const Option& option, T t, Ts&&...ts)
 	{
 		// Construct the opt
-		Option option(optSpec);
 		bool foundFlag = false;
 		if(result.parsing)// XXX: Does D return a complete Option[] after stopping?
 		{
@@ -340,7 +400,6 @@ namespace GetOpt
 			for(size_t argsIndex = 0; argsIndex < argsLimit;)// Flag find loop
 			{
 				std::string arg = args[argsIndex];
-				// std::cout << "arg: " << arg << std::endl;
 				if(!config.caseSensitive)
 					std::transform(arg.begin(), arg.end(), arg.begin(), ::tolower);
 
@@ -371,6 +430,8 @@ namespace GetOpt
 							case FlagType::SHORT_SOLITARY:
 								foundHere = foundFlag = option.shortOpts.count(arg[0]);
 								break;
+							default:
+								throw std::logic_error("internal error: incorrect flag type after parse");
 						}
 						break;
 					default:
@@ -407,24 +468,27 @@ namespace GetOpt
 		}
 		END_PARSE:
 		if(!foundFlag && config.required)
-			throw GetOptException("Required option " + optSpec + " was not supplied");
+			throw GetOptException("Required option " + option.spec + " was not supplied");
 		result.options.push_back(option);
 		getopthelper(args, argsLimit, config, result, ts...);
 	}
-
-
-	template<typename T, typename...Ts>
-	void getopthelper(ArgVector& args, decltype(args.size())& argsLimit, GetOptConfiguration& config, GetOptResult& result, const char* opt, T& t, Ts&&...ts)
+	
+	// config value
+	template<typename...Ts>
+	void getopthelper(ArgVector& args, decltype(args.size())& argsLimit
+						, GetOptConfiguration& configuration, GetOptResult& result
+						, config configOption, Ts&&...ts)
 	{
-		getopthelper(args, argsLimit, config, result, std::string(opt), t, ts...);
+		configuration.set(configOption);
+		getopthelper(args, argsLimit, configuration, result, ts...);
 	}
 
-	// Exit case
-	void getopthelper(ArgVector& args, decltype(args.size())& argsLimit, GetOptConfiguration& config, GetOptResult& result)
+	void getopthelper(ArgVector& args, decltype(args.size())& argsLimit
+						, GetOptConfiguration& config, GetOptResult& result)
 	{
 		// Baked-in help check
 		if(!result.definedOption("help") && !result.definedOption('h'))
-			getopthelper(args, argsLimit, config, result, "help|h", result.helpWanted);
+			getopthelper(args, argsLimit, config, result, "help|h", "Shows this help", &result.helpWanted);
 
 		if(!config.passThrough) // Check for args we didn't get
 		{
@@ -448,8 +512,9 @@ namespace GetOpt
 			if(args[i] == "--")
 			{
 				argsLimit = i;
-				break;
+				return true;
 			}
+		return false;
 	}
 
 	// These are almost certainly the functions you want as an end user.
@@ -457,13 +522,15 @@ namespace GetOpt
 	void defaultGetoptPrinter(std::ostream& os, const std::string& message, std::vector<Option> options)
 	{
   		os << message << std::endl;
-		//TODO: Implement me! And make the format string customizable too!
-		// D pseudocode of implementation necessary:
-		/*foreach(it; opt)
-		{
-		    writefln("%*s %*s %s", lengthOfLongestShortOption, it.optShort,
-		        lengthOfLongestLongOption, it.optLong, it.help);
-		}*/
+		auto longestLong = 0;
+		for(auto& o : options)
+			for(auto& longOpt : o.longOpts)
+				if(longOpt.size() > longestLong)
+					longestLong = longOpt.size();
+		for(auto& o : options)
+			os << std::setw(2) << (o.shortOptForHelp.empty() ? " " : '-' + o.shortOptForHelp)
+		  	   << std::setw(longestLong + 3) << (o.longOptForHelp.empty() ? " " : "--" + o.longOptForHelp)
+		  	   << " " << o.help << std::endl;
 	}
 
 	void defaultGetoptPrinter(const std::string& message, std::vector<Option> options)
@@ -471,7 +538,7 @@ namespace GetOpt
 		defaultGetoptPrinter(std::cout, message, options);
 	}
 
-	template<typename...Args, bool = false>
+	template<typename...Args>
 	GetOptResult getopt(ArgVector& args, Args&&...getoptargs)
 	{
 		GetOptResult result;
@@ -495,7 +562,7 @@ namespace GetOpt
 		GetOptResultAndArgs(GetOptResult r, ArgVector as) : result(r), args(as) {}
 	};
 
-	template<typename...Args, bool = false>
+	template<typename...Args>
 	GetOptResultAndArgs getopt(int argc, char** argv, Args&&...getoptargs)
 	{
 		ArgVector args(argc);
