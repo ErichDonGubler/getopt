@@ -1,3 +1,4 @@
+[![Stories in Ready](https://badge.waffle.io/ErichDonGubler/getopt.png?label=ready&title=Ready)](https://waffle.io/ErichDonGubler/getopt)
 # Getopt
 
 A quality getopt implementation without strong copyleft concern, licensed under [Boost 1.0](http://www.boost.org/LICENSE_1_0.txt).
