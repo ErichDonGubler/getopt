@@ -14,21 +14,20 @@
 
 // Core functionality
 #include <iostream>// ostream for help printing
-#include <string>
-#include <vector>
-#include <unordered_set> // opts matching
 #include <sstream> // conversions between most types
 #include <stdexcept> // runtime_error
+#include <string>
 #include <type_traits> // is_integral, // remove_const
 #include <typeinfo> // use typeid(...) for error message for conversions
+#include <unordered_set> // opts matching
 #include <utility> // move
+#include <vector>
 
 // Case conversion
-#include <algorithm> // transform
 #include <cctype> // tolower
+#include <algorithm> // transform
 
 // String case conversions
-#include <cctype> // tolower
 #include <algorithm> // transform
 
 // Help printing
