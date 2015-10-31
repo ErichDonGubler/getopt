@@ -226,7 +226,7 @@ namespace GetOpt
 	{
 		std::stringstream ss(s);
 		ss >> *t;
-		if(!ss || ss.peek() != EOF)
+		if(!ss || !ss.eof())
 			throwConversionException<T>(s);
 	}
 
