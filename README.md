@@ -16,7 +16,7 @@ This repository serves as the development location for [`getopt.h`](https://gith
 * Long options (`--verbosity`, `--help`)
 * Special handling for boolean and incremental (integral type) options (i.e., count number of `--quiet`)
 * Parsing of options determined at compile time dependent upon the variables you provide for each option
-* Builtin help and help printingi
+* Builtin help and help printing
 * Uses stream operators for parsing, and thus can be extended to parse user-defined types
 
 ## Including in your Project
