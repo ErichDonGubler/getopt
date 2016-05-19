@@ -423,11 +423,11 @@ namespace GetOpt
 						{
 							case FlagType::LONG:
 							case FlagType::LONG_SOLITARY:
-								foundHere = foundFlag = option.longOpts.count(arg);
+								foundHere = foundFlag = (option.longOpts.count(arg) > 0);
 								break;
 							case FlagType::SHORT:
 							case FlagType::SHORT_SOLITARY:
-								foundHere = foundFlag = option.shortOpts.count(arg[0]);
+								foundHere = foundFlag = (option.shortOpts.count(arg[0]) > 0);
 								break;
 							default:
 								throw std::logic_error("internal error: incorrect flag type after parse");
@@ -521,7 +521,7 @@ namespace GetOpt
 	void defaultGetoptPrinter(std::ostream& os, const std::string& message, std::vector<Option> options)
 	{
   		os << message << std::endl;
-		auto longestLong = 0;
+		size_t longestLong = 0;
 		for(auto& o : options)
 			for(auto& longOpt : o.longOpts)
 				if(longOpt.size() > longestLong)
