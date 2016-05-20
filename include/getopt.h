@@ -469,6 +469,7 @@ namespace GetOpt
 		if(!foundFlag && config.required)
 			throw GetOptException("Required option " + option.spec + " was not supplied");
 		result.options.push_back(option);
+		config.required = false; // required flag should only affect one arg
 		getopthelper(args, argsLimit, config, result, ts...);
 	}
 	
