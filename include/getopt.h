@@ -277,8 +277,8 @@ namespace GetOpt
 	};
 
 	// Mutates @arg to the matched opt string
-	// If content is found, replaces @optContent
-	FlagType flagType(std::string& arg, std::string& optContent, GetOptConfiguration& config)
+	// If content is found, replaces @optContent with it
+	FlagType flagType(std::string& arg, std::string& optContent)
 	{
 		FlagType type = FlagType::NONE;
 		auto argSize = arg.size();
@@ -424,7 +424,7 @@ namespace GetOpt
 
 				bool foundHere = false;
 				bool expectingContentNext = false;
-				auto type = flagType(arg, optContent, config);
+				auto type = flagType(arg, optContent);
 				switch(type)// Remember: arg and optContent are mutated!
 				{
 					case FlagType::NONE:
@@ -515,7 +515,7 @@ namespace GetOpt
 			for(auto i = 0; i < argsLimit; ++i)
 			{
 				std::string arg = args[i], content;
-				switch(flagType(arg, content, config))
+				switch(flagType(arg, content))
 				{
 					case FlagType::NONE:
 						break;
