@@ -1,0 +1,3 @@
+[submodule "depends/cpputils"]
+	path = depends/cpputils
+	url = git@github.com:ErichDonGubler/cpputils.git
