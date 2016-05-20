@@ -12,6 +12,26 @@
 #ifndef GETOPT_H
 #define GETOPT_H
 
+/* 
+ * A high-level description of the getopt(...) variadic function is as follows:
+ *
+ * 1) A user provides a vector of arguments, either by providing argc and argv 
+ *    directly or a built string vector. The user also provides options
+ *    specifications, which can be accepted variadically in the following forms:
+ *
+ *    - option specification string, help string, pointer to variable
+ *    - option specification string, pointer to variable
+ *    - config flag
+ *
+ *    The input stream operator (">>") is used to coerce option strings from
+ *    arguments into associated variables.
+ *    
+ * 2) For each option specified, iterate over the arguments and try to find it.
+ *
+ * There are many quirks and different behaviors specified by flags. See the
+ * docs for a full description of each one.
+ */
+
 // Core functionality
 #include <iostream>// ostream for help printing
 #include <sstream> // conversions between most types
