@@ -53,7 +53,7 @@
 // Help printing
 #include <iomanip>
 
-namespace GetOpt
+namespace GetOpt // The namespace for everything associated with this library.
 {
 	class GetOptException : public std::runtime_error
 	{
@@ -359,7 +359,7 @@ namespace GetOpt
 	// TODO: Could we include these all under the same struct template?
 
 	template<typename T, typename...Ts>
-	void getopthelper(ArgVector& args, decltype(args.size())& argsLimit
+	void getopthelper(ArgVector& args, size_t& argsLimit
 						, GetOptConfiguration& config, GetOptResult& result
 						, const std::string& optSpec, T t, Ts&&...ts)
 	{
@@ -367,7 +367,7 @@ namespace GetOpt
 	}
 
 	template<typename T, typename...Ts>
-	void getopthelper(ArgVector& args, decltype(args.size())& argsLimit
+	void getopthelper(ArgVector& args, size_t& argsLimit
 						, GetOptConfiguration& config, GetOptResult& result
 						, const char* optSpec, T t, Ts&&...ts)
 	{
@@ -375,7 +375,7 @@ namespace GetOpt
 	}
 
 	template<typename T, typename...Ts>
-	void getopthelper(ArgVector& args, decltype(args.size())& argsLimit
+	void getopthelper(ArgVector& args, size_t& argsLimit
 						, GetOptConfiguration& config, GetOptResult& result
 						, const std::string& optSpec, const std::string& help, T t, Ts&&...ts)
 	{
@@ -383,7 +383,7 @@ namespace GetOpt
 	}
 
 	template<typename T, typename...Ts>
-	void getopthelper(ArgVector& args, decltype(args.size())& argsLimit
+	void getopthelper(ArgVector& args, size_t& argsLimit
 						, GetOptConfiguration& config, GetOptResult& result
 						, const char* optSpec, const std::string& help, T t, Ts&&...ts)
 	{
@@ -391,7 +391,7 @@ namespace GetOpt
 	}
 
 	template<typename T, typename...Ts>
-	void getopthelper(ArgVector& args, decltype(args.size())& argsLimit
+	void getopthelper(ArgVector& args, size_t& argsLimit
 						, GetOptConfiguration& config, GetOptResult& result
 						, const std::string& optSpec, const char* help, T t, Ts&&...ts)
 	{
@@ -399,7 +399,7 @@ namespace GetOpt
 	}
 
 	template<typename T, typename...Ts>
-	void getopthelper(ArgVector& args, decltype(args.size())& argsLimit
+	void getopthelper(ArgVector& args, size_t& argsLimit
 						, GetOptConfiguration& config, GetOptResult& result
 						, const char* optSpec, const char* help, T t, Ts&&...ts)
 	{
@@ -407,7 +407,7 @@ namespace GetOpt
 	}
 
 	template<typename T, typename...Ts>
-	void getopthelper(ArgVector& args, decltype(args.size())& argsLimit
+	void getopthelper(ArgVector& args, size_t& argsLimit
 						, GetOptConfiguration& config, GetOptResult& result
 						, const Option& option, T t, Ts&&...ts)
 	{
@@ -439,7 +439,7 @@ namespace GetOpt
 						expectingContentNext = true;
 					case FlagType::LONG:
 					case FlagType::SHORT:
-						switch(type)
+						switch(type) // Remember: might have fallen through
 						{
 							case FlagType::LONG:
 							case FlagType::LONG_SOLITARY:
@@ -495,15 +495,16 @@ namespace GetOpt
 	
 	// config value
 	template<typename...Ts>
-	void getopthelper(ArgVector& args, decltype(args.size())& argsLimit
+	void getopthelper(ArgVector& args, size_t& argsLimit
 						, GetOptConfiguration& configuration, GetOptResult& result
 						, config configOption, Ts&&...ts)
 	{
 		configuration.set(configOption);
 		getopthelper(args, argsLimit, configuration, result, ts...);
 	}
-
-	void getopthelper(ArgVector& args, decltype(args.size())& argsLimit
+		
+	// Finished parsing args
+	void getopthelper(ArgVector& args, size_t& argsLimit
 						, GetOptConfiguration& config, GetOptResult& result)
 	{
 		// Baked-in help check
@@ -512,7 +513,7 @@ namespace GetOpt
 
 		if(!config.passThrough) // Check for args we didn't get
 		{
-			for(auto i = 0; i < argsLimit; ++i)
+			for(size_t i = 0; i < argsLimit; ++i)
 			{
 				std::string arg = args[i], content;
 				switch(flagType(arg, content))
@@ -526,9 +527,9 @@ namespace GetOpt
 		}
 	}
 
-	bool findTerminatorIndex(ArgVector& args, decltype(args.size())& argsLimit)//XXX: Inline?
+	bool findTerminatorIndex(ArgVector& args, size_t& argsLimit)//XXX: Inline?
 	{
-		for(auto i = 0; i < args.size(); ++i)
+		for(size_t i = 0; i < args.size(); ++i)
 			if(args[i] == "--")
 			{
 				argsLimit = i;
@@ -564,7 +565,7 @@ namespace GetOpt
 		GetOptResult result;
 		GetOptConfiguration config;
 		auto argsLimit = args.size();
-		bool hasTerminator = findTerminatorIndex(args, argsLimit);
+		bool hasTerminator = findTerminatorIndex(args, argsLimit); // Remember: argsLimit is mutated
 		getopthelper(args, argsLimit, config, result, getoptargs...);
 		if(hasTerminator && !config.keepEndOfOptions)
 			args.erase(args.begin() + argsLimit);
@@ -579,14 +580,16 @@ namespace GetOpt
 		ArgVector args;
 
 		GetOptResultAndArgs() = default;
-		GetOptResultAndArgs(GetOptResult r, ArgVector as) : result(r), args(as) {}
+		GetOptResultAndArgs(GetOptResult r, ArgVector as)
+			: result(r), args(as)
+		{}
 	};
 
 	template<typename...Args>
 	GetOptResultAndArgs getopt(int argc, char** argv, Args&&...getoptargs)
 	{
 		ArgVector args(argc);
-		for(auto i = 0; i < argc; ++i)
+		for(size_t i = 0; i < argc; ++i)
 			args[i] = argv[i];
 		auto result = getopt(args, getoptargs...);
 		return GetOptResultAndArgs(result, std::move(args));
