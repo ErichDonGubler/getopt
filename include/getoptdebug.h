@@ -1,6 +1,6 @@
 /**
  * getoptdebug.h
- * Several debug functionsfor getopt that are useful and required too much thought to simply throw away.
+ * Several debug functions for getopt that are useful and required too much thought to simply throw away.
  * Authors: Erich Gubler, erichdongubler@gmail.com
  */
 #ifndef GETOPTDEBUG_H
